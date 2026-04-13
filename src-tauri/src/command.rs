@@ -29,11 +29,11 @@ pub fn init_menubar_panel(app_handle: AppHandle) {
         let panel = window.to_panel::<MenubarPanel>().unwrap();
 
         // Configure panel for menu bar behavior
-        panel.set_level(PanelLevel::MainMenu.value() + 1);
+        // Use Floating level (3) so IME candidate window can appear above
+        panel.set_level(PanelLevel::Floating.value());
         panel.set_style_mask(
             (StyleMask::empty()
                 .borderless()
-                .nonactivating_panel()
                 .resizable())
             .value(),
         );
@@ -54,6 +54,7 @@ pub fn init_menubar_panel(app_handle: AppHandle) {
         handler.window_did_resign_key(move |_notification| {
             if let Ok(p) = handle.get_webview_panel("main") {
                 p.hide();
+                handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
         });
 
@@ -64,8 +65,10 @@ pub fn init_menubar_panel(app_handle: AppHandle) {
 #[tauri::command]
 pub fn show_menubar_panel(app_handle: AppHandle) {
     if let Ok(panel) = app_handle.get_webview_panel("main") {
+        app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
         position_menubar_panel(&app_handle);
         panel.show();
+        panel.make_key_and_order_front();
     }
 }
 

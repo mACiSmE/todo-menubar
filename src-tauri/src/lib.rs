@@ -96,9 +96,12 @@ pub fn run() {
                         if let Ok(panel) = app_handle.get_webview_panel("main") {
                             if panel.is_visible() {
                                 panel.hide();
+                                app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
                             } else {
+                                app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
                                 command::position_menubar_panel(app_handle);
                                 panel.show();
+                                panel.make_key_and_order_front();
                             }
                         }
                     }
