@@ -2,6 +2,7 @@ mod command;
 mod ocr;
 mod tray;
 
+use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -67,19 +68,17 @@ pub fn run() {
         kind: MigrationKind::Up,
     }];
 
-    // Cmd+Shift+T to toggle panel
     let shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT);
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            command::init_menubar_panel,
             command::show_menubar_panel,
+            command::hide_menubar_panel,
             ocr::extract_todos_claude,
             ocr::extract_text_vision,
             ocr::save_clipboard_image,
             ocr::save_todo_image,
         ])
-        .plugin(tauri_nspanel::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:todos.db", migrations)
@@ -92,16 +91,11 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app_handle, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
-                        use tauri_nspanel::ManagerExt;
-                        if let Ok(panel) = app_handle.get_webview_panel("main") {
-                            if panel.is_visible() {
-                                panel.hide();
-                                app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            if window.is_visible().unwrap_or(false) {
+                                command::hide_panel(app_handle);
                             } else {
-                                app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
-                                command::position_menubar_panel(app_handle);
-                                panel.show();
-                                panel.make_key_and_order_front();
+                                command::show_panel(app_handle);
                             }
                         }
                     }
@@ -109,14 +103,20 @@ pub fn run() {
                 .build(),
         )
         .setup(move |app| {
-            // Hide from Dock and Cmd+Tab
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            // Create tray icon
             tray::create(app.handle())?;
-
-            // Register global shortcut
             app.handle().global_shortcut().register(shortcut).ok();
+
+            // Listen for window blur to auto-hide
+            let handle = app.handle().clone();
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        command::hide_panel(&handle);
+                    }
+                });
+            }
 
             Ok(())
         })

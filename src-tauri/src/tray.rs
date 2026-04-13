@@ -4,14 +4,12 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
-use tauri_nspanel::ManagerExt;
 
-use crate::command::position_menubar_panel;
+use crate::command;
 
 pub fn create(app_handle: &AppHandle) -> tauri::Result<TrayIcon> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
 
-    // Build right-click context menu
     let quit_item = MenuItemBuilder::with_id("quit", "Quit Todo Menubar").build(app_handle)?;
     let menu = MenuBuilder::new(app_handle).item(&quit_item).build()?;
 
@@ -35,19 +33,12 @@ pub fn create(app_handle: &AppHandle) -> tauri::Result<TrayIcon> {
                 ..
             } = event
             {
-                if let Ok(panel) = app_handle.get_webview_panel("main") {
-                    if panel.is_visible() {
-                        // Hide: switch back to Accessory
-                        panel.hide();
-                        app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
-                        return;
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    if window.is_visible().unwrap_or(false) {
+                        command::hide_panel(app_handle);
+                    } else {
+                        command::show_panel(app_handle);
                     }
-
-                    // Show: switch to Regular so IME works properly
-                    app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
-                    position_menubar_panel(app_handle);
-                    panel.show();
-                    panel.make_key_and_order_front();
                 }
             }
         })

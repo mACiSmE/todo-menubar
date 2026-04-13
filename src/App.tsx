@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { AddTodo } from "./components/AddTodo";
 import { TodoList } from "./components/TodoList";
@@ -30,7 +29,6 @@ function App() {
   todosRef.current = todos;
 
   useEffect(() => {
-    invoke("init_menubar_panel").catch(console.error);
     // Auto-archive on startup
     db.runAutoArchive().then((n) => {
       if (n > 0) {
